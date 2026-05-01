@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BZU Bookstore System</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  body { 
+    margin: 0; 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    background-color: #f4f6f8; 
+    background-image: url('istockphoto-929023224-612x612.jpg');
+   
+   
+  }
+  .top-bar {
+    background: #1f2937; color: white; padding: 15px 30px; display: flex; align-items: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000;
+  }
+  .brand { font-size: 1.4rem; font-weight: bold; display: flex; align-items: center; gap: 10px; }
+  .nav-links { margin-left: 40px; display: flex; gap: 20px; }
+  .nav-item { cursor: pointer; padding: 5px 10px; border-radius: 4px; transition: 0.3s; }
+  .nav-item:hover, .nav-item.active { background: #374151; }
+  .controls { margin-left: auto; display: flex; gap: 10px; }
+  input.search-bar { padding: 8px; border-radius: 5px; border: none; width: 200px; }
+  button.btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+  .btn-green { background: #10b981; color: white; }
+  .container { max-width: 1200px; margin: 30px auto; padding: 20px; }
+  .books-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 25px; }
+  .card { background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s; }
+  .card:hover { transform: translateY(-5px); }
+  .card img { width: 100%; height: 200px; object-fit: contain; margin-bottom: 10px; }
+  .card h3 { font-size: 1.1rem; margin: 5px 0; height: 45px; overflow: hidden; }
+  .badge { background: #e5e7eb; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; }
+  .price { color: #10b981; font-weight: bold; font-size: 1.2rem; margin-top: 10px; display: block; }
+  .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 40px; }
+  .stat-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { border-bottom: 1px solid #ddd; padding: 10px; text-align: left; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="top-bar">
+    <div class="brand">📚 BZU Bookstore</div>
+    <div class="nav-links">
+      <div class="nav-item" :class="{active: currentView === 'store'}" @click="currentView = 'store'">Store Books</div>
+      <div class="nav-item" :class="{active: currentView === 'dashboard'}" @click="loadDashboard()">Admin Dashboard</div>
+    </div>
+
+    <div class="controls" v-if="currentView === 'store'">
+      <button class="btn btn-green" @click="toggleSort()">
+        {{ sortBy === 'price' ? 'Sorted by Price' : 'Sorted by Name' }}
+      </button>
+      <input class="search-bar" type="text" v-model="searchQuery" @input="fetchBooks()" placeholder="Search title...">
+    </div>
+  </div>
+
+  <div class="container">
+    <div v-if="currentView === 'store'">
+      <div class="books-grid">
+        <div class="card" v-for="book in books" :key="book.book_id">
+          <img :src="book.image" onerror="this.src='https://via.placeholder.com/150?text=Book+Cover'">
+          <span class="badge">{{ book.category_name }}</span>
+          <h3>{{ book.title }}</h3>
+          <small>Stock: {{ book.quantity }}</small>
+          <span class="price">${{ book.price }}</span>
+        </div>
+      </div>
+      <p v-if="books.length === 0" style="text-align: center; background: white; padding: 20px;">No books found in database.</p>
+    </div>
+
+    <div v-if="currentView === 'dashboard'">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>⚠️ Low Stock Alert (Query 4)</h3>
+          <table>
+            <tr><th>Book</th><th>Qty</th></tr>
+            <tr v-for="item in lowStock" :key="item.title">
+              <td>{{ item.title }}</td>
+              <td style="color:red; font-weight:bold">{{ item.quantity }}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="stat-card">
+          <h3>🕒 Overdue Rentals (Query 11)</h3>
+          <table>
+            <tr><th>Customer</th><th>Due Date</th></tr>
+            <tr v-for="r in overdueRentals" :key="r.rental_id">
+              <td>{{ r.customer_name }}</td>
+              <td>{{ r.due_date }}</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <h3>📊 Books per Category (Query 5)</h3>
+        <div style="height: 300px;">
+            <canvas id="categoryChart"></canvas>
+        </div>
+      </div>
+      
+      <div style="margin-top: 20px; text-align: center; font-size: 1.5rem; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        Total Sales Revenue (Query 7): <span style="color: #10b981; font-weight: bold;">${{ revenue }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp } = Vue
+
+createApp({
+  data() {
+    return {
+      currentView: 'store',
+      searchQuery: '',
+      sortBy: 'name',
+      books: [],
+      lowStock: [],
+      overdueRentals: [],
+      revenue: 0,
+      chartInstance: null
+    }
+  },
+  methods: {
+   
+    fetchBooks() {
+      let url = `index.php?action=get_books`;
+      if (this.sortBy === 'price') url += `&sort=price`;
+      if (this.searchQuery) url += `&search=${this.searchQuery}`;
+
+      fetch(url)
+        .then(res => res.json())
+        .then(data => { this.books = data; })
+        .catch(err => console.error("Database connection error:", err));
+    },
+    toggleSort() {
+      this.sortBy = this.sortBy === 'price' ? 'name' : 'price';
+      this.fetchBooks();
+    },
+    loadDashboard() {
+      this.currentView = 'dashboard';
+      
+   
+      fetch('api.php?action=get_low_stock').then(r=>r.json()).then(d => this.lowStock = d);
+      fetch('api.php?action=get_overdue_rentals').then(r=>r.json()).then(d => this.overdueRentals = d);
+      fetch('api.php?action=get_sales_revenue').then(r=>r.json()).then(d => {
+         if(d.length > 0) this.revenue = d[0].total_revenue || 0; 
+      });
+
+   
+      fetch('api.php?action=get_stats_categories').then(r=>r.json()).then(data => {
+        this.renderChart(data);
+      });
+    },
+    renderChart(data) {
+      setTimeout(() => {
+        const ctx = document.getElementById('categoryChart');
+        if(!ctx) return;
+        if(this.chartInstance) this.chartInstance.destroy();
+
+        this.chartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: data.map(item => item.category_name),
+            datasets: [{
+              label: '# of Books',
+              data: data.map(item => item.count),
+              backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444']
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }, 100);
+    }
+  },
+  mounted() {
+    this.fetchBooks(); 
+  }
+}).mount('#app')
+</script>
+</body>
+</html>
