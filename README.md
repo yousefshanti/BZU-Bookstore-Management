@@ -10,9 +10,8 @@
 
 ## 👤 Author
 
-| Name | Student ID | Section |
-|------|-----------|---------|
-| Yousef Shanti | 1221137 | 4 |
+| Name 
+| Yousef Shanti 
 
 **Instructor:** Dr. Ihab Alshaer  
 **Date:** 18 / 1 / 2026
